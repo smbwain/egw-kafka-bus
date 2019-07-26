@@ -1,0 +1,23 @@
+{
+  "name": "egw-kafka-bus",
+  "version": "0.0.1",
+  "description": "Kafka bus for egw",
+  "main": "index.js",
+  "scripts": {
+    "build": "tsc",
+    "lint": "tslint 'src/**/*.ts'",
+    "prepublish": "npm run build && npm run lint"
+  },
+  "author": "Roman Ditchuk",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/node": "^12.6.8",
+    "tslint": "^5.18.0",
+    "typescript": "^3.5.3"
+  },
+  "dependencies": {
+    "egw": "^2.0.0-alpha.6",
+    "no-kafka": "^3.4.3",
+    "serialize-error": "^4.1.0"
+  }
+}
