@@ -2,7 +2,8 @@
   "name": "egw-kafka-bus",
   "version": "0.0.1",
   "description": "Kafka bus for egw",
-  "main": "index.js",
+  "main": "dist/index.js",
+  "types": "dist/index.d.js",
   "scripts": {
     "build": "tsc",
     "lint": "tslint 'src/**/*.ts'",
@@ -16,8 +17,9 @@
     "typescript": "^3.5.3"
   },
   "dependencies": {
-    "egw": "^2.0.0-alpha.6",
+    "egw": "3.0.0-alpha.1",
+    "msv-logger": "0.0.4",
     "no-kafka": "^3.4.3",
-    "serialize-error": "^4.1.0"
+    "serialize-error": "4.1.0"
   }
 }

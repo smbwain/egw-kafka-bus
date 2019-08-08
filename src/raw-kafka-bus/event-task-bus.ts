@@ -85,7 +85,7 @@ export const createEventTaskBus = async ({
     });
     const messageBus = new MessageBus({
         kafkaServers,
-        logger,
+        logger: logger.sub({tag: 'message-bus'}),
     });
 
     await netServer.listen();
@@ -108,26 +108,34 @@ export const createEventTaskBus = async ({
         await messageBus.destroy();
     }
 
-    async function registerEventListener<D>(name: string, {concurrency}: {concurrency: number}, handler: (data: D) => Promise<void>): Promise<Unsubscriber> {
+    async function registerEventListener<D>(
+        name: string,
+        {concurrency}: {concurrency: number},
+        handler: (data: D) => Promise<void>,
+    ): Promise<Unsubscriber> {
         return messageBus.consume(
             `event_${name}`,
             {
                 groupId,
                 concurrency,
             },
-            ({data}) => handler(data)
+            ({data}) => handler(data),
         );
     }
 
     let taskCnt = 1;
-    async function registerTaskWorker<D, R>(name: string, {concurrency}: {concurrency: number}, handler: (data: D) => Promise<R>): Promise<Unsubscriber> {
+    async function registerTaskWorker<D, R>(
+        name: string,
+        {concurrency}: {concurrency: number},
+        handler: (data: D) => Promise<R>,
+    ): Promise<Unsubscriber> {
         return messageBus.consume(
             `task_${name}`,
             {
                 groupId,
                 concurrency,
             },
-            async({key, rpcSender, data/*, successEvent, errorEvent*/}) => {
+            async ({key, rpcSender, data/*, successEvent, errorEvent*/}) => {
                 let res;
                 const profiler = logger.profiler(`in-task-${taskCnt++}`);
                 profiler(`start processing ${name}`);
@@ -139,7 +147,7 @@ export const createEventTaskBus = async ({
                         profiler('sending error response');
                         await networkRequest(rpcSender, {
                             key,
-                            error
+                            error,
                         });
                         profiler(`finish error response`);
                     }
@@ -171,7 +179,7 @@ export const createEventTaskBus = async ({
                     });
                     profiler('finish sending event');
                 }*/
-            }
+            },
         );
     }
 

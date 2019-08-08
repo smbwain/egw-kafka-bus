@@ -1,4 +1,4 @@
-import {asyncInitializer, Context, _logger} from 'egw';
+import {_logger, asyncInitializer, Context} from 'egw';
 
 import {createEventTaskBus, Unsubscriber} from './raw-kafka-bus/event-task-bus';
 
@@ -11,11 +11,13 @@ export interface Bus {
         wait: false,
     }): Promise<void>;
     registerEventListener<D>(
+        ctx: Context,
         name: string,
         options: {concurrency: number},
         handler: (ctx: Context, data: D) => Promise<void>,
     ): Promise<Unsubscriber>;
     registerTaskWorker<D, R>(
+        ctx: Context,
         name: string,
         options: {concurrency: number},
         handler: (ctx: Context, data: D) => Promise<R>,
@@ -45,12 +47,13 @@ export const [_bus, _initBus] = asyncInitializer(async (
         sendEvent,
         runTask,
         registerEventListener: <D>(
+            registratorCtx: Context,
             name: string,
             options: { concurrency: number },
             handler: (ctx: Context, data: D) => Promise<void>,
         ): Promise<Unsubscriber> => {
             return registerEventListener<D>(name, options, async (data) => {
-                const ctx = baseContext.sub();
+                const ctx = registratorCtx.sub();
                 try {
                     await handler(ctx, data);
                 } finally {
@@ -59,12 +62,13 @@ export const [_bus, _initBus] = asyncInitializer(async (
             });
         },
         registerTaskWorker: <D, R>(
+            registratorCtx: Context,
             name: string,
             options: { concurrency: number },
             handler: (ctx: Context, data: D) => Promise<R>,
         ): Promise<Unsubscriber> => {
             return registerTaskWorker<D, R>(name, options, async (data) => {
-                const ctx = baseContext.sub();
+                const ctx = registratorCtx.sub();
                 try {
                     return await handler(ctx, data);
                 } finally {

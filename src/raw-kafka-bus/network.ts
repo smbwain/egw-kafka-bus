@@ -1,4 +1,4 @@
-import {Server, createServer, createConnection, AddressInfo} from 'net';
+import { AddressInfo, createConnection, createServer, Server } from 'net';
 
 import eventsToPromise from './events-to-promise';
 
@@ -12,7 +12,7 @@ export function createNetworkServer(
     let server: Server;
 
     const listen = async () => {
-        server = createServer(socket => {
+        server = createServer((socket) => {
             const data: string[] = [];
             socket.setEncoding('utf8');
             socket.on('data', (chunk: string) => data.push(chunk));
@@ -31,7 +31,7 @@ export function createNetworkServer(
     const close = async () => {
         if (server) {
             await new Promise((resolve, reject) => {
-                server.close(err => err ? reject(err) : resolve());
+                server.close((err) => err ? reject(err) : resolve());
             });
             server = null;
         }
@@ -57,7 +57,7 @@ export async function networkRequest(
 ) {
     const connection = createConnection({
         host,
-        port
+        port,
     });
     await eventsToPromise(connection, 'connect', ['error', 'timeout']);
     connection.end(JSON.stringify(data));

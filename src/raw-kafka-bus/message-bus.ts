@@ -1,21 +1,22 @@
-import * as Kafka from 'no-kafka';
 import {Logger} from 'msv-logger';
+import * as Kafka from 'no-kafka';
 
 export type Unsubscriber = () => Promise<void>;
 
 export class MessageBus {
-    private consumers: (Kafka.GroupConsumer)[];
-    private kafkaServers: string;
     public logger: Logger;
+
+    private consumers: Kafka.GroupConsumer[];
+    private kafkaServers: string;
     private logFunction: (type: 'INFO' | 'DEBUG' | 'WARN' | 'ERROR', ...rest: any[]) => void;
     private producer: Kafka.Producer;
 
     constructor({
         kafkaServers,
-        logger
+        logger,
     }: {
         kafkaServers: string,
-        logger: Logger
+        logger: Logger;
     }) {
         this.consumers = [];
         this.kafkaServers = kafkaServers;
@@ -32,7 +33,7 @@ export class MessageBus {
         };
     }
 
-    async init() : Promise<void> {
+    public async init(): Promise<void> {
         this.producer = new Kafka.Producer({
             connectionString: this.kafkaServers,
             /*partitioner: function(name, list, message) {
@@ -40,8 +41,8 @@ export class MessageBus {
             }*/
             logger: {
                 logLevel: 4,
-                logFunction: this.logFunction
-            }
+                logFunction: this.logFunction,
+            },
         });
         await this.producer.init();
     }
@@ -49,36 +50,41 @@ export class MessageBus {
     /**
      * Send message(s) to topic
      */
-    async send(topic : string, messages : {} | {}[]) {
-        if(!Array.isArray(messages)) {
+    public async send(topic: string, messages: {} | Array<{}>) {
+        if (!Array.isArray(messages)) {
             messages = [messages];
         }
-        this.logger && this.logger.debug(`Sending ${(messages as {}[]).length} messages to topic "${topic}"`);
-        await this.producer.send((messages as {}[]).map(m => ({
-            topic: topic,
+        if (this.logger) {
+            this.logger.debug(`Sending ${(messages as Array<{}>).length} messages to topic "${topic}"`);
+        }
+        await this.producer.send((messages as Array<{}>).map((m) => ({
+            topic,
             message: {
                 key: '0',
-                value: JSON.stringify(m)
-            }
+                value: JSON.stringify(m),
+            },
         })));
     }
 
     /**
      * Start to consume messages from topic
      */
-    async consume(topic : string, {groupId, concurrency} : {
-        groupId: string;
-        concurrency: number;
-    }, handler : (data: any) => Promise<void>) : Promise<Unsubscriber> {
-        let that = this;
+    public async consume(
+        topic: string,
+        {groupId, concurrency}: {
+            groupId: string;
+            concurrency: number;
+        },
+        handler: (data: any) => Promise<void>,
+    ): Promise<Unsubscriber> {
         // await this._createTopics([topic]);
         // this.log(`Starting consume from topic "${topic}" (groupId: "${groupId}")`);
-        let consumer = new Kafka.GroupConsumer({
+        const consumer = new Kafka.GroupConsumer({
             connectionString: this.kafkaServers,
-            groupId: groupId,
+            groupId,
             logger: {
                 logLevel: 4,
-                logFunction: this.logFunction
+                logFunction: this.logFunction,
             },
             idleTimeout: 0,
             handlerConcurrency: concurrency,
@@ -86,19 +92,26 @@ export class MessageBus {
         await consumer.init([{
             strategy: new Kafka.DefaultAssignmentStrategy(),
             subscriptions: [topic],
-            handler: async(messageSet, topic, partition) => {
-                for(let m of messageSet) {
+            handler: async (messageSet, handledTopic, partition) => {
+                for (const m of messageSet) {
                     // console.log('m>', m);
-                    that.logger && this.logger.debug(`Received message from topic ${topic}`);
-                    console.log('aaa', JSON.parse((m as any).message.value));
+                    if (this.logger) {
+                        this.logger.debug(`Received message from topic ${handledTopic}`);
+                    }
+                    // console.log('aaa', JSON.parse((m as any).message.value));
                     try {
                         await handler(JSON.parse((m as any).message.value));
                     } catch (err) {
                         this.logger.error(err);
                     }
-                    await consumer.commitOffset({topic: topic, partition: partition, offset: (m as any).offset/*, metadata: 'optional'*/});
+                    await consumer.commitOffset({
+                        topic: handledTopic,
+                        partition,
+                        offset: (m as any).offset,
+                        /*, metadata: 'optional'*/
+                    });
                 }
-            }
+            },
         }]);
         this.consumers.push(consumer);
         return async () => {
@@ -106,17 +119,17 @@ export class MessageBus {
         };
     }
 
-    private async closeConsumer(consumer: Kafka.GroupConsumer) {
-        this.consumers = this.consumers.filter(item => item != consumer);
-        await consumer.end();
+    public async closeConsumers() {
+        await Promise.all(this.consumers.map((consumer) => this.closeConsumer(consumer)));
     }
 
-    async closeConsumers() {
-        await Promise.all(this.consumers.map(consumer => this.closeConsumer(consumer)));
-    }
-
-    async destroy() {
+    public async destroy() {
         await this.closeConsumers();
         await this.producer.end();
+    }
+
+    private async closeConsumer(consumer: Kafka.GroupConsumer) {
+        this.consumers = this.consumers.filter((item) => item !== consumer);
+        await consumer.end();
     }
 }
